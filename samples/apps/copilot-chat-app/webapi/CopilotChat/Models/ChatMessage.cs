@@ -141,7 +141,7 @@ public class ChatMessage : IStorageEntity
     /// <param name="prompt">The prompt used to generate the message</param>
     public static ChatMessage CreateBotResponseMessage(string chatId, string content, string prompt)
     {
-        return new ChatMessage("bot", "bot", chatId, content, prompt, AuthorRoles.Bot, IsPlan(content) ? ChatMessageType.Plan : ChatMessageType.Message);
+        return new ChatMessage("bot", "Xiaoan", chatId, content, prompt, AuthorRoles.Bot, IsPlan(content) ? ChatMessageType.Plan : ChatMessageType.Message);
     }
 
     /// <summary>

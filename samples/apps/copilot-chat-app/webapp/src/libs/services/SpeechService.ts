@@ -34,7 +34,7 @@ export class SpeechService extends BaseService {
 
     private generateSpeechRecognizer ( token: string, region: string) {
         const speechConfig = speechSdk.SpeechConfig.fromAuthorizationToken(token, region);
-        speechConfig.speechRecognitionLanguage = 'en-US';
+        speechConfig.speechRecognitionLanguage = 'zh-CN';
         const audioConfig = speechSdk.AudioConfig.fromDefaultMicrophoneInput();
         return new speechSdk.SpeechRecognizer(speechConfig, audioConfig);
     }

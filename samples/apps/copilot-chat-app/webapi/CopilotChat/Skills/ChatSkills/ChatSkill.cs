@@ -4,14 +4,17 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Microsoft.IdentityModel.Tokens;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.AI.TextCompletion;
 using Microsoft.SemanticKernel.Orchestration;
+using Microsoft.SemanticKernel.SemanticFunctions;
 using Microsoft.SemanticKernel.SkillDefinition;
 using Microsoft.SemanticKernel.TemplateEngine;
 using SemanticKernel.Service.CopilotChat.Models;
@@ -61,6 +64,8 @@ public class ChatSkill
     /// A skill instance to acquire external information.
     /// </summary>
     private readonly ExternalInformationSkill _externalInformationSkill;
+
+    private string _currentDomain;
 
     /// <summary>
     /// Create a new instance of <see cref="ChatSkill"/>.
@@ -133,8 +138,67 @@ public class ChatSkill
             return string.Empty;
         }
 
-        return $"User intent: {result}";
+        //sck update 2023-06-21
+        //return $"User intent: {result}";
+
+        var returnResult = string.Empty;
+        var isJson = this.IsJsonValid(result.Result);
+        if (isJson)
+        {
+            var intentResult = JsonSerializer.Deserialize<ChatDomain>(result.Result);
+            this._currentDomain = intentResult.Domain;
+            returnResult = intentResult.Intent;
+        }
+        else
+        {
+            this._currentDomain = "Other";
+            returnResult = result.Result;
+        }
+
+        return $"User intent: {returnResult}";
+        //End
     }
+
+    ///// <summary>
+    ///// Extract chat samples.
+    ///// </summary>
+    ///// <param name="context">Contains the 'tokenLimit' controlling the length of the prompt.</param>
+    //[SKFunction("Extract chat samples")]
+    //[SKFunctionName("ExtractChatSamples")]
+    //[SKFunctionContextParameter(Name = "tokenLimit", Description = "Maximum number of tokens")]
+    //public async Task<string> ExtractChatSamplesAsync(SKContext context)
+    //{
+    //    var tokenLimit = int.Parse(context["tokenLimit"], new NumberFormatInfo());
+
+    //    var messages = this._promptOptions.SystemIntentExamples;
+    //    var sortedMessages = JsonSerializer.Deserialize<ChatSamples[]>(messages);
+
+    //    if (sortedMessages == null)
+    //    {
+    //        return $"Chat samples:\n";
+    //    }
+
+    //    var remainingToken = tokenLimit;
+    //    string samplesText = "";
+    //    foreach (var chatSample in sortedMessages)
+    //    {
+    //        var formattedMessage = chatSample.ToFormattedString(context["audience"] ?? "User", chatSample.Input);
+    //        formattedMessage += chatSample.ToFormattedString("Intent", chatSample.Intent);
+    //        var tokenCount = Utilities.TokenCount(formattedMessage);
+
+    //        if (remainingToken - tokenCount > 0)
+    //        {
+    //            samplesText = $"{formattedMessage}\n{samplesText}";
+    //            remainingToken -= tokenCount;
+    //        }
+    //        else
+    //        {
+    //            break;
+    //        }
+    //    }
+
+    //    return $"Chat samples:\n{samplesText.Trim()}";
+    //}
 
     /// <summary>
     /// Extract the list of participants from the conversation history.
@@ -197,7 +261,6 @@ public class ChatSkill
         var sortedMessages = messages.OrderByDescending(m => m.Timestamp);
 
         var remainingToken = tokenLimit;
-
         string historyText = "";
         foreach (var chatMessage in sortedMessages)
         {
@@ -326,6 +389,44 @@ public class ChatSkill
             this._promptOptions);
 
         context.Variables.Update(response);
+        //context.Variables.Set("UserIntent", chatContext.Variables["UserIntent"]);
+
+        return context;
+    }
+
+    /// <summary>
+    /// 获取自有数据
+    /// </summary>
+    /// <param name="message"></param>
+    /// <param name="context">Contains the 'tokenLimit' and the 'contextTokenLimit' controlling the length of the prompt.</param>
+    [SKFunction("Response from private domain data")]
+    [SKFunctionName("GetSelfData")]
+    [SKFunctionInput(Description = "The new message")]
+    [SKFunctionContextParameter(Name = "userId", Description = "Unique and persistent identifier for the user")]
+    [SKFunctionContextParameter(Name = "userName", Description = "Name of the user")]
+    [SKFunctionContextParameter(Name = "chatId", Description = "Unique and persistent identifier for the chat")]
+    public async Task<SKContext> GetSelfDataAsync(string message, SKContext context)
+    {
+        // TODO: check if user has access to the chat
+        var userId = context["userId"];
+        var userName = context["userName"];
+        var chatId = context["chatId"];
+
+        // Clone the context to avoid modifying the original context variables.
+        var chatContext = Utilities.CopyContextWithVariablesClone(context);
+        chatContext.Variables.Set("knowledgeCutoff", this._promptOptions.KnowledgeCutoffDate);
+        chatContext.Variables.Set("audience", chatContext["userName"]);
+
+        var response = await this.GetSelfResponseAsync(chatContext);
+
+        if (chatContext.ErrorOccurred)
+        {
+            context.Fail(chatContext.LastErrorDescription);
+            return context;
+        }
+
+        context.Variables.Update(response);
+
         return context;
     }
 
@@ -355,19 +456,26 @@ public class ChatSkill
         // 2. Calculate the remaining token budget.
         var remainingToken = this.GetChatContextTokenLimit(userIntent);
 
-        // 3. Acquire external information from planner
-        var externalInformationTokenLimit = (int)(remainingToken * this._promptOptions.ExternalInformationContextWeight);
-        var planResult = await this.AcquireExternalInformationAsync(chatContext, userIntent, externalInformationTokenLimit);
-        if (chatContext.ErrorOccurred)
+        //sck update 2023-06-21
+        var planResult = string.Empty;
+        if ((!string.IsNullOrWhiteSpace(this._currentDomain) && "Function".Equals(this._currentDomain)) || (chatContext.Variables.TryGetValue("proposedPlan", out string? planJson)
+            && !string.IsNullOrWhiteSpace(planJson)))
         {
-            return string.Empty;
-        }
+            // 3. Acquire external information from planner  从planner获取外部信息
+            var externalInformationTokenLimit = (int)(remainingToken * this._promptOptions.ExternalInformationContextWeight);
+            planResult = await this.AcquireExternalInformationAsync(chatContext, userIntent, externalInformationTokenLimit);
+            if (chatContext.ErrorOccurred)
+            {
+                return string.Empty;
+            }
 
-        // If plan is suggested, send back to user for approval before running
-        if (this._externalInformationSkill.ProposedPlan != null)
-        {
-            return JsonSerializer.Serialize<ProposedPlan>(this._externalInformationSkill.ProposedPlan);
+            // If plan is suggested, send back to user for approval before running
+            if (this._externalInformationSkill.ProposedPlan != null)
+            {
+                return JsonSerializer.Serialize<ProposedPlan>(this._externalInformationSkill.ProposedPlan);
+            }
         }
+        //End
 
         // 4. Query relevant semantic memories
         var chatMemoriesTokenLimit = (int)(remainingToken * this._promptOptions.MemoriesResponseContextWeight);
@@ -700,7 +808,7 @@ public class ChatSkill
             TopP = this._promptOptions.IntentTopP,
             FrequencyPenalty = this._promptOptions.IntentFrequencyPenalty,
             PresencePenalty = this._promptOptions.IntentPresencePenalty,
-            StopSequences = new string[] { "] bot:" }
+            StopSequences = new string[] { "] Xiaoan:" }
         };
 
         return completionSettings;
@@ -728,6 +836,74 @@ public class ChatSkill
             );
 
         return remainingToken;
+    }
+
+    private async Task<string> GetSelfResponseAsync(SKContext chatContext)
+    {
+        // 1. Extract user intent from the conversation history.
+        var userIntent = chatContext["UserIntent"];
+
+        // 2. Calculate the remaining token budget.
+        var remainingToken = this.GetChatContextTokenLimit(userIntent);
+
+        // 5. Query relevant document memories
+        var documentContextTokenLimit = (int)(remainingToken * this._promptOptions.DocumentContextWeight);
+        var documentMemories = await this.QueryDocumentsAsync(chatContext, userIntent, documentContextTokenLimit);
+        if (chatContext.ErrorOccurred)
+        {
+            return string.Empty;
+        }
+
+        //string pattern = @"\{[^{}]+\}";
+        //StringBuilder sb = new();
+
+        //foreach (Match match in Regex.Matches(documentMemories, pattern))
+        //{
+        //    var jo = JsonSerializer.Deserialize<Dictionary<string, string>>(match.Value);
+
+        //    if (jo != null)
+        //    {
+        //        if (string.IsNullOrEmpty(jo["检查依据"]))
+        //        {
+        //            continue;
+        //        }
+
+        //        sb.Append("检查依据库: ");
+        //        sb.Append("隐患描述=" + jo["隐患描述"]);
+        //        sb.Append("；检查依据=" + jo["检查依据"]);
+        //        sb.Append("；整改建议=" + jo["整改建议"]);
+        //        sb.AppendLine("；隐患性质=" + jo["隐患性质"]);
+        //    }
+
+        //}
+        //documentMemories = sb.ToString();
+
+        // Allow the caller to view the prompt used to generate the response
+        chatContext.Variables.Set("DocumentMemories", documentMemories);
+
+        ISKFunction search = chatContext.Func("SemanticSkills", "SearchSelfData");
+
+        chatContext = await search.InvokeAsync(chatContext);
+
+        //chatContext.Variables.Set("prompt", search.);
+
+        return chatContext.Result;
+    }
+
+    private bool IsJsonValid(string json)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+            return false;
+
+        try
+        {
+            using var jsonDoc = JsonDocument.Parse(json);
+            return true;
+        }
+        catch (JsonException)
+        {
+            return false;
+        }
     }
 
     # endregion

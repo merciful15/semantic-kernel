@@ -25,6 +25,7 @@ using Microsoft.SemanticKernel.Skills.OpenAPI.Authentication;
 using SemanticKernel.Service.CopilotChat.Hubs;
 using SemanticKernel.Service.CopilotChat.Models;
 using SemanticKernel.Service.CopilotChat.Skills.ChatSkills;
+using SemanticKernel.Service.CopilotChat.Skills.JGSkills;
 using SemanticKernel.Service.Models;
 
 namespace SemanticKernel.Service.CopilotChat.Controllers;
@@ -82,6 +83,9 @@ public class ChatController : ControllerBase, IDisposable
         // Register plugins that have been enabled
         await this.RegisterPlannerSkillsAsync(planner, openApiSkillsAuthHeaders, contextVariables);
 
+        //监管版Skills
+        planner.Kernel.ImportSkill(new JGOperateSkill(kernel, this._logger), "JGOperate");
+
         // Get the function to invoke
         ISKFunction? function = null;
         try
@@ -130,6 +134,42 @@ public class ChatController : ControllerBase, IDisposable
         }
 
         return this.Ok(chatSkillAskResult);
+
+        //var gptGenerate = result.Result; //GPT基于prompt进行的查询。
+
+        ////自有数据的查询 start
+        //// Get the function to invoke
+        //contextVariables.Set("GptAnswer", gptGenerate);
+
+        //function = null;
+        //try
+        //{
+        //    function = kernel.Skills.GetFunction(ChatSkillName, "GetSelfData");
+        //}
+        //catch (KernelException ke)
+        //{
+        //    this._logger.LogError("Failed to find {0}/{1} on server: {2}", ChatSkillName, "GetSelfData", ke);
+
+        //    return this.NotFound($"Failed to find {ChatSkillName}/{ChatFunctionName} on server");
+        //}
+
+        //// Run the function.
+        //result = await kernel.RunAsync(contextVariables, function!);
+        //if (result.ErrorOccurred)
+        //{
+        //    if (result.LastException is AIException aiException && aiException.Detail is not null)
+        //    {
+        //        return this.BadRequest(string.Concat(aiException.Message, " - Detail: " + aiException.Detail));
+        //    }
+
+        //    return this.BadRequest(result.LastErrorDescription);
+        //}
+
+        //var lastResult = gptGenerate + "\n补充信息：\n" + result.Result;
+        ////End
+        //var lastResult = gptGenerate;
+
+        //return this.Ok(new AskResult { Value = lastResult, Variables = result.Variables.Select(v => new KeyValuePair<string, string>(v.Key, v.Value)) });
     }
 
     /// <summary>

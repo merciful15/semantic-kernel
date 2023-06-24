@@ -170,6 +170,8 @@ internal static class SemanticKernelExtensions
     /// </summary>
     private static KernelBuilder WithEmbeddingBackend(this KernelBuilder kernelBuilder, AIServiceOptions options)
     {
+        //保留切换huggingface模型
+        //kernelBuilder.WithHuggingFaceTextCompletionService("text2vec-large-chinese", "");
         return options.Type switch
         {
             AIServiceOptions.AIServiceType.AzureOpenAI

@@ -74,7 +74,8 @@ public class PromptsOptions
         this.SystemDescription,
         this.SystemIntent,
         "{{ChatSkill.ExtractChatHistory}}",
-        this.SystemIntentContinuation
+        this.SystemIntentContinuation,
+        this.SystemIntentFormat
     };
 
     internal string SystemIntentExtraction => string.Join("\n", this.SystemIntentPromptComponents);
@@ -82,6 +83,10 @@ public class PromptsOptions
     // Intent extraction
     [Required, NotEmptyOrWhitespace] public string SystemIntent { get; set; } = string.Empty;
     [Required, NotEmptyOrWhitespace] public string SystemIntentContinuation { get; set; } = string.Empty;
+
+    //sck add 2023-06-21
+    [Required, NotEmptyOrWhitespace] public string SystemIntentFormat { get; set; } = string.Empty;
+    //End
 
     // Audience extraction
     [Required, NotEmptyOrWhitespace] public string SystemAudience { get; set; } = string.Empty;
@@ -132,8 +137,8 @@ public class PromptsOptions
         { this.WorkingMemoryName, this.WorkingMemory }
     };
 
-    // Chat commands
-    internal string SystemChatContinuation = "SINGLE RESPONSE FROM BOT TO USER:\n[{{TimeSkill.Now}} {{timeSkill.Second}}] bot:";
+    // Chat commands 这个是聊天命令，表示后面开始输出内容
+    internal string SystemChatContinuation = "SINGLE RESPONSE FROM Xiaoan TO USER:\n[{{TimeSkill.Now}} {{timeSkill.Second}}] Xiaoan:";
 
     internal string[] SystemChatPromptComponents => new string[]
     {
@@ -156,4 +161,8 @@ public class PromptsOptions
     internal double IntentTopP { get; } = 1;
     internal double IntentPresencePenalty { get; } = 0.5;
     internal double IntentFrequencyPenalty { get; } = 0.5;
+
+
+    //sck add
+    //[Required, NotEmptyOrWhitespace] public string SystemIntentExamples { get; set; } = string.Empty;
 }

@@ -15,8 +15,8 @@ public class DocumentImportForm
     /// </summary>
     public enum DocumentScopes
     {
-        Global,
-        Chat,
+        Global,//所有Chat共用
+        Chat,//当前聊天专用
     }
 
     /// <summary>
@@ -27,7 +27,7 @@ public class DocumentImportForm
     /// <summary>
     /// Scope of the document. This determines the collection name in the document memory.
     /// </summary>
-    public DocumentScopes DocumentScope { get; set; } = DocumentScopes.Chat;
+    public DocumentScopes DocumentScope { get; set; } = DocumentScopes.Global;//sck update 2023-06-05 DocumentScopes.Chat改成现在。
 
     /// <summary>
     /// The ID of the chat that owns the document.

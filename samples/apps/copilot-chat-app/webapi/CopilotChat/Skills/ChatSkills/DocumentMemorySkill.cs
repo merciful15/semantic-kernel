@@ -1,5 +1,6 @@
 ﻿// Copyright (c) Microsoft. All rights reserved.
 
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
@@ -81,10 +82,11 @@ public class DocumentMemorySkill
         string documentsText = string.Empty;
         foreach (var memory in relevantMemories)
         {
-            var tokenCount = Utilities.TokenCount(memory.Metadata.Text);
+            string strText = this.DeleteTszf(memory.Metadata.Text);
+            var tokenCount = Utilities.TokenCount(strText);
             if (remainingToken - tokenCount > 0)
             {
-                documentsText += $"\n\nSnippet from {memory.Metadata.Description}: {memory.Metadata.Text}";
+                documentsText += $"\n\nSnippet from {memory.Metadata.Description}: {strText}";
                 remainingToken -= tokenCount;
             }
             else
@@ -100,5 +102,77 @@ public class DocumentMemorySkill
         }
 
         return $"User has also shared some document snippets:\n{documentsText}";
+    }
+
+    //[SKFunction("Query documents in the memory given a user message")]
+    //[SKFunctionName("QueryDocumentsCn")]
+    //[SKFunctionInput(Description = "Query to match.")]
+    //[SKFunctionContextParameter(Name = "chatId", Description = "ID of the chat that owns the documents")]
+    //[SKFunctionContextParameter(Name = "tokenLimit", Description = "Maximum number of tokens")]
+    //public async Task<string> QueryDocumentsAsyncCn(string query, SKContext context)
+    //{
+    //    string chatId = context.Variables["chatId"];
+    //    int tokenLimit = int.Parse(context.Variables["tokenLimit"], new NumberFormatInfo());
+    //    var remainingToken = tokenLimit;
+
+    //    // Search for relevant document snippets.
+    //    string[] documentCollections = new string[]
+    //    {
+    //        this._documentImportOptions.ChatDocumentCollectionNamePrefix + chatId,
+    //        this._documentImportOptions.GlobalDocumentCollectionName
+    //    };
+
+    //    List<MemoryQueryResult> relevantMemories = new();
+    //    foreach (var documentCollection in documentCollections)
+    //    {
+    //        var results = context.Memory.SearchAsync(
+    //            documentCollection,
+    //            query,
+    //            limit: 100,
+    //            minRelevanceScore: this._promptOptions.DocumentMemoryMinRelevance);
+    //        await foreach (var memory in results)
+    //        {
+    //            relevantMemories.Add(memory);
+    //        }
+    //    }
+
+    //    relevantMemories = relevantMemories.OrderByDescending(m => m.Relevance).ToList();
+
+    //    // Concatenate the relevant document snippets.
+    //    string documentsText = string.Empty;
+    //    foreach (var memory in relevantMemories)
+    //    {
+    //        string strText = this.DeleteTszf(memory.Metadata.Text);
+    //        var tokenCount = Utilities.TokenCount(strText);
+    //        if (remainingToken - tokenCount > 0)
+    //        {
+    //            //documentsText += $"\n\nSnippet from {memory.Metadata.Description}: {memory.Metadata.Text}";
+    //            documentsText += $"\n{memory.Metadata.Description}: {strText}";
+    //            remainingToken -= tokenCount;
+    //        }
+    //        else
+    //        {
+    //            break;
+    //        }
+    //    }
+
+    //    if (string.IsNullOrEmpty(documentsText))
+    //    {
+    //        // No relevant documents found
+    //        return string.Empty;
+    //    }
+
+    //    //return $"User has also shared some document snippets:\n{documentsText}";
+    //    return $"\n{documentsText}";
+    //}
+
+    private string DeleteTszf(string strInput)
+    {
+        string strResult = string.Empty;
+        strResult = strInput.Trim();
+        strResult = strResult.Replace(Environment.NewLine, "", StringComparison.CurrentCulture);
+        strResult = strResult.Replace("\t", "", StringComparison.Ordinal);
+
+        return strResult;
     }
 }
