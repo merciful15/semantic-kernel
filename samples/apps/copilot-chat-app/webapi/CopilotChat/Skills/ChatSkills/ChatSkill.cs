@@ -65,7 +65,7 @@ public class ChatSkill
     /// </summary>
     private readonly ExternalInformationSkill _externalInformationSkill;
 
-    private string _currentDomain;
+    private string _currentIntentCategory;
 
     /// <summary>
     /// Create a new instance of <see cref="ChatSkill"/>.
@@ -145,13 +145,13 @@ public class ChatSkill
         var isJson = this.IsJsonValid(result.Result);
         if (isJson)
         {
-            var intentResult = JsonSerializer.Deserialize<ChatDomain>(result.Result);
-            this._currentDomain = intentResult.Domain;
+            var intentResult = JsonSerializer.Deserialize<IntentCategory>(result.Result);
+            this._currentIntentCategory = intentResult.Category;
             returnResult = intentResult.Intent;
         }
         else
         {
-            this._currentDomain = "Other";
+            this._currentIntentCategory = "Other";
             returnResult = result.Result;
         }
 
@@ -458,7 +458,7 @@ public class ChatSkill
 
         //sck update 2023-06-21
         var planResult = string.Empty;
-        if ((!string.IsNullOrWhiteSpace(this._currentDomain) && "Function".Equals(this._currentDomain)) || (chatContext.Variables.TryGetValue("proposedPlan", out string? planJson)
+        if ((!string.IsNullOrWhiteSpace(this._currentIntentCategory) && "Function".Equals(this._currentIntentCategory)) || (chatContext.Variables.TryGetValue("proposedPlan", out string? planJson)
             && !string.IsNullOrWhiteSpace(planJson)))
         {
             // 3. Acquire external information from planner  从planner获取外部信息
