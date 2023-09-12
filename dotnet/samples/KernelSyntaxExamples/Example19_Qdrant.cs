@@ -3,6 +3,7 @@
 using System;
 using System.Globalization;
 using System.Net.Http;
+using System.Security.Cryptography;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Microsoft.SemanticKernel;
@@ -16,7 +17,9 @@ using Resources;
 // ReSharper disable once InconsistentNaming
 public static class Example19_Qdrant
 {
-    private const string MemoryCollectionName = "global-documents";
+    private const string _Endpoint = "http://192.168.1.25:5000/embeddings";
+    private const string _Model = "text2vec-large-chinese";
+    private const string MemoryCollectionName = "test-documents";
 
     public static async Task RunAsync()
     {
@@ -41,7 +44,8 @@ public static class Example19_Qdrant
         IKernel kernel = Kernel.Builder
             .WithLogger(ConsoleLogger.Log)
             .WithAzureTextCompletionService("gpt35-chat", "https://gpt3-westeurope.openai.azure.com/", Env.Var("AZURE_OPENAI_KEY"))
-            .WithAzureTextEmbeddingGenerationService("embed-002", "https://gpt3-westeurope.openai.azure.com/", Env.Var("AZURE_OPENAI_KEY"))
+            //.WithAzureTextEmbeddingGenerationService("embed-002", "https://gpt3-westeurope.openai.azure.com/", Env.Var("AZURE_OPENAI_KEY"))
+            .WithHuggingFaceTextEmbeddingGenerationService(_Model, _Endpoint)
             .WithMemoryStorage(memoryStore)
             .Build();
 
@@ -56,21 +60,21 @@ public static class Example19_Qdrant
 
         var jsonData = EmbeddedResource.Read("peidianxiang.txt");
 
-        JArray jsonArray = (JArray)JsonConvert.DeserializeObject(jsonData);
+        //JArray jsonArray = (JArray)JsonConvert.DeserializeObject(jsonData);
 
-        string sId = string.Empty;
-        for (int i = 0; i < jsonArray.Count; i++)
-        {
-            var entry = jsonArray[i].ToString();
-            sId = "data" + i;
-            await kernel.Memory.SaveInformationAsync(MemoryCollectionName, id: sId, text: jsonArray[i].ToString(),description: $"Document: 配电箱json.txt");
-            //await kernel.Memory.SaveReferenceAsync(
-            //    collection: MemoryCollectionName,
-            //    text: entry,
-            //    externalId: sId,
-            //    externalSourceName: "GistSource"
-            //);
-        }
+        //string sId = string.Empty;
+        //for (int i = 0; i < jsonArray.Count; i++)
+        //{
+        //    var entry = jsonArray[i].ToString();
+        //    sId = "data" + i;
+        //    await kernel.Memory.SaveInformationAsync(MemoryCollectionName, id: sId, text: jsonArray[i].ToString(),description: $"Document: 配电箱json.txt");
+        //    //await kernel.Memory.SaveReferenceAsync(
+        //    //    collection: MemoryCollectionName,
+        //    //    text: entry,
+        //    //    externalId: sId,
+        //    //    externalSourceName: "GistSource"
+        //    //);
+        //}
 
         //Console.WriteLine("== Retrieving Memories Through the Kernel ==");
         //MemoryQueryResult? lookup = await kernel.Memory.GetAsync(MemoryCollectionName, "cat1");
@@ -98,10 +102,32 @@ public static class Example19_Qdrant
         //Console.WriteLine("== Removing Collection {0} ==", MemoryCollectionName);
         //await memoryStore.DeleteCollectionAsync(MemoryCollectionName);
 
+        //通过HuggingFace模型进行测试
+        await kernel.Memory.SaveInformationAsync(MemoryCollectionName, id: "001", text: jsonData, description: $"Document: 配电箱json.txt");
+        await SearchMemoryAsync(kernel, "对于内部含有电器、电线等物体的顶棚，使用燃烧性能过低的木质板材装修，这个隐患对应的检查依据是什么");
+
         Console.WriteLine("== Printing Collections in DB ==");
         await foreach (var collection in collections)
         {
             Console.WriteLine(collection);
         }
+    }
+
+    private static async Task SearchMemoryAsync(IKernel kernel, string query)
+    {
+        Console.WriteLine("\nQuery: " + query + "\n");
+
+        var memories = kernel.Memory.SearchAsync(MemoryCollectionName, query, limit: 2, minRelevanceScore: 0.5);
+
+        int i = 0;
+        await foreach (MemoryQueryResult memory in memories)
+        {
+            Console.WriteLine($"Result {++i}:");
+            Console.WriteLine("  URL:     : " + memory.Metadata.Id);
+            Console.WriteLine("  Title    : " + memory.Metadata.Description);
+            Console.WriteLine();
+        }
+
+        Console.WriteLine("----------------------");
     }
 }
