@@ -65,8 +65,8 @@ public static class Program
         //await Example19_Qdrant.RunAsync();
         //Console.WriteLine("== DONE ==");
 
-        await Example20_HuggingFace.RunAsync();
-        Console.WriteLine("== DONE ==");
+        //await Example20_HuggingFace.RunAsync();
+        //Console.WriteLine("== DONE ==");
 
         //await Example21_ChatGptPlugins.RunAsync();
         //Console.WriteLine("== DONE ==");
@@ -128,8 +128,8 @@ public static class Program
         //await Example40_DIContainer.RunAsync();
         //Console.WriteLine("== DONE ==");
 
-        //Example41_HttpClientUsage.Run();
-        //Console.WriteLine("== DONE ==");
+        Example41_HttpClientUsage.Run();
+        Console.WriteLine("== DONE ==");
 
         //Example42_KernelBuilder.Run();
         //Console.WriteLine("== DONE ==");
